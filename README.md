@@ -1,5 +1,5 @@
 # the-friendly-stars
-`the-friendly-stars` is a Python toolkit for interacting with catalogs of stars and images of the sky. It can be used to make custom finder charts, and it may soon include additional visualizations.
+`the-friendly-stars` is a Python toolkit for interacting with catalogs of stars and images of the sky. It can be used to make custom finder charts, and it may soon include additional visualizations. Read the (very basic) [documentation](https://zkbt.github.io/the-friendly-stars/).
 
 Following [The Friendly Stars](https://books.google.com/books?id=uUYJAAAAIAAJ&printsec=frontcover&source=gbs_ge_summary_r&cad=0#v=onepage&q&f=false) by Martha Evans Martin (1925), "the chief aim of this [package] is to share with others the pleasure which the writer has had in what may be called a relation of personal friendship with the stars." It is still very much so a *work in progress*.
 
