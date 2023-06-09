@@ -85,9 +85,10 @@ setup(
         "matplotlib",
         "astropy",
         "jupyter",
-        "ipympl",
-        "ipywidgets",
+        #"ipympl",
+        #"ipywidgets",
         "tqdm",
+        "astroquery"
     ],
     # what version of Python is required?
     python_requires=">=3.7",  # f-strings are introduced in 3.6!
