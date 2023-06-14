@@ -20,7 +20,7 @@ or
 `python setup.py install`
 
 ...upload the entire package to the Python Package Index, so that other folks
-will be able to install your package via the simple `pip install the-friendly-stars`, by
+will be able to install your package via the simple `pip install thefriendlystars`, by
 running the following command:
 
 `python setup.py release`
@@ -43,7 +43,7 @@ if "release" in sys.argv[-1]:
     # uncomment the next line to test out on test.pypi.com/project/tess-zap
     # os.system("twine upload --repository-url https://test.pypi.org/legacy/ dist/*")
     os.system("twine upload dist/*")
-    os.system("rm -rf dist/the-friendly-stars*")
+    os.system("rm -rf dist/thefriendlystars*")
     sys.exit()
 
 # a little kludge to get the version number from __version__
@@ -52,19 +52,19 @@ exec(open("thefriendlystars/version.py").read())
 # run the setup function
 setup(
     # the name folks can use to search for this with pip
-    name="the-friendly-stars",
+    name="thefriendlystars",
     # what version of the code is this?
     version=__version__,
     # what's a short description of the package?
     description=" Python toolkit for making finder charts with catalogs that cover a small patch of the sky.",
     # what's a more detailed description?
-    long_description="Details at https://zkbt.github.io/the-friendly-stars/",
+    long_description="Details at https://zkbt.github.io/thefriendlystars/",
     # who's the main author?
     author="Zach Berta-Thompson",
     # what's the main author's email?
     author_email="zach.bertathompson@colorado.edu",
     # what's the URL for the repository?
-    url="https://github.com/zkbt/the-friendly-stars/",
+    url="https://github.com/zkbt/thefriendlystars/",
     # this figures out what subdirectories to include
     packages=find_packages(),
     # are there data that should be accessible when installed?
@@ -92,7 +92,7 @@ setup(
     ],
     # what version of Python is required?
     python_requires=">=3.7",  # f-strings are introduced in 3.6!
-    # requirements in `key` will install with `pip install the-friendly-stars[key]`
+    # requirements in `key` will install with `pip install thefriendlystars[key]`
     extras_require={
         "develop": [
             "pytest",

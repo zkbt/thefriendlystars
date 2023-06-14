@@ -1,5 +1,5 @@
-site_name: the-friendly-stars
-site_url: https://zkbt.github.com/the-friendly-stars
+site_name: thefriendlystars
+site_url: https://zkbt.github.com/thefriendlystars
 nav:
     - Welcome: index.md
     - gaia.ipynb
@@ -7,7 +7,7 @@ theme:
   name: "material"
   features:
       - navigation.tracking
-repo_url: https://github.com/zkbt/the-friendly-stars/
+repo_url: https://github.com/zkbt/thefriendlystars/
 plugins:
   - search
   - mkdocs-jupyter:

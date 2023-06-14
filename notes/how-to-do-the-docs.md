@@ -12,6 +12,6 @@ I added notebooks in `docs/*.ipynb` explaining how to use some aspects of the co
 
 I copied over and modified `mkdocs.yml` to define the navigation and basic settings of the documentation page. 
 
-I ran `mkdocs serve`, and woah, a live version of the docs appeared when I pointed my browser to http://127.0.0.1:8000/the-friendly-stars/. If I make and save changes to any of the documentation source, it reruns and soon updates what I see in the browser!
+I ran `mkdocs serve`, and woah, a live version of the docs appeared when I pointed my browser to http://127.0.0.1:8000/thefriendlystars/. If I make and save changes to any of the documentation source, it reruns and soon updates what I see in the browser!
 
-I ran `mkdocs gh-deploy` to deploy a pretty version of the docs up at `https://zkbt.github.io/the-friendly-stars/`. For the sake of not making the deployment `gh-pages` branch annoyingly large, add the `--no-history` option to erase the repository each time.
+I ran `mkdocs gh-deploy` to deploy a pretty version of the docs up at `https://zkbt.github.io/thefriendlystars/`. For the sake of not making the deployment `gh-pages` branch annoyingly large, add the `--no-history` option to erase the repository each time.
