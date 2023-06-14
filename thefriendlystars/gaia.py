@@ -8,6 +8,7 @@ import warnings
 # set a high row limit to allow lots of stars in crowded fields
 Gaia.ROW_LIMIT = 50000
 Gaia.MAIN_GAIA_TABLE = "gaiaedr3.gaia_source"
+gaia_epoch = 2016.0
 
 # Gaia filter transformations from
 # https://gea.esac.esa.int/archive/documentation/GDR2/Data_processing/chap_cu5pho/sec_cu5pho_calibr/ssec_cu5pho_PhotTransf.html
@@ -149,6 +150,7 @@ def get_gaia(center, radius=6 * u.arcmin):
     # keep track of center and radius
     table.meta["center"] = center_skycoord
     table.meta["radius"] = radius
+    table.meta['epoch'] = gaia_epoch
 
     # return the table
     return table
