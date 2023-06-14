@@ -5,6 +5,9 @@ from astropy.table import QTable
 from astropy.visualization import quantity_support
 import warnings 
 
+# for information about available queries + columns, see 
+# https://astroquery.readthedocs.io/en/latest/gaia/gaia.html
+
 # set a high row limit to allow lots of stars in crowded fields
 Gaia.ROW_LIMIT = 50000
 Gaia.MAIN_GAIA_TABLE = "gaiaedr3.gaia_source"
@@ -122,14 +125,15 @@ def get_gaia(center, radius=6 * u.arcmin):
         center_skycoord,
         radius,
         columns=[
+            "source_id",
             "ra",
             "dec",
             "phot_g_mean_mag",
             "phot_rp_mean_mag",
             "phot_bp_mean_mag",
-            "parallax",
-            "pmra",
-            "pmdec",
+            "parallax", "parallax_error",
+            "pmra", "pmra_error",
+            "pmdec", "pmdec_error"
         ],
     )
     results = job.get_results()
