@@ -3,7 +3,7 @@
 
 Following [The Friendly Stars](https://books.google.com/books?id=uUYJAAAAIAAJ&printsec=frontcover&source=gbs_ge_summary_r&cad=0#v=onepage&q&f=false) by Martha Evans Martin (1925), "the chief aim of this [package] is to share with others the pleasure which the writer has had in what may be called a relation of personal friendship with the stars." It is still very much so a *work in progress*.
 
-*(If there's any chance you had been using a pre-2023 version of `thefriendlystars`, please note it has moved to [`the-earlier-version-of-thefriendlystars`](https://github.com/zkbt/the-earlier-version-of-thefriendlystars). We're starting from scratch here!)*
+*(If there's any chance you had been using a pre-2023 version of `thefriendlystars`, please note it has moved to [`the-earlier-version-of-the-friendly-stars`](https://github.com/zkbt/the-earlier-version-of-the-friendly-stars). We're starting from scratch here!)*
 
 ## Installation
 You should be able to install this simply by running `pip install git+https://github.com/zkbt/thefriendlystars.git`.
