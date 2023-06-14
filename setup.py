@@ -85,8 +85,6 @@ setup(
         "matplotlib",
         "astropy",
         "jupyter",
-        #"ipympl",
-        #"ipywidgets",
         "tqdm",
         "astroquery"
     ],

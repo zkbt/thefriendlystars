@@ -6,7 +6,11 @@ Following [The Friendly Stars](https://books.google.com/books?id=uUYJAAAAIAAJ&pr
 *(If there's any chance you had been using a pre-2023 version of `thefriendlystars`, please note it has moved to [`the-earlier-version-of-the-friendly-stars`](https://github.com/zkbt/the-earlier-version-of-the-friendly-stars). We're starting from scratch here!)*
 
 ## Installation
-You should be able to install this simply by running `pip install git+https://github.com/zkbt/thefriendlystars.git`.
+You should be able to install this simply by running
+
+```
+pip install thefriendlystars
+```
 
 If you want to be able to modify the code yourself, please also feel free to fork/clone this repository onto your own computer and install directly from that editable package. For example, this might look like:
 ```
