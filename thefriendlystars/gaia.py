@@ -123,7 +123,7 @@ def get_gaia(center, radius=6 * u.arcmin):
     # get the data from the archive
     job = Gaia.cone_search_async(
         center_skycoord,
-        radius,
+        radius=radius,
         columns=[
             "source_id",
             "ra",
@@ -167,6 +167,7 @@ def plot_gaia(
     faintest_magnitude_to_label=16,
     size_of_zero_magnitude=100,
     unit=u.arcmin,
+    **kwargs
 ):
     """
     Plot a finder chart using results from `get_gaia_data`.
@@ -193,6 +194,8 @@ def plot_gaia(
         Default is 100.
     unit : Unit
         What unit should be used for labels? Default is u.arcmin.
+    **kwargs : dict 
+        Additional keywords will be passed to `plt.scatter`.
     """
 
     # extract the center and size of the field
@@ -214,7 +217,7 @@ def plot_gaia(
     with quantity_support():
 
         # plot the stars
-        plt.scatter(dra, ddec, s=marker_size, color="black")
+        plt.scatter(dra, ddec, s=marker_size, **kwargs)
         plt.xlabel(
             rf"$\Delta$(Right Ascension) [{unit}] relative to {center.ra.to_string(u.hour, format='latex', precision=2)}"
         )

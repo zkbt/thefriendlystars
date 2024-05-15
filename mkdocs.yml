@@ -2,6 +2,7 @@ site_name: thefriendlystars
 site_url: https://zkbt.github.com/thefriendlystars
 nav:
     - Welcome: index.md
+    - installation.ipynb
     - gaia.ipynb
 theme:
   name: "material"
