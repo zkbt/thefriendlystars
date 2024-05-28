@@ -3,6 +3,11 @@ from astropy.coordinates import SkyCoord
 from astroquery.gaia import Gaia
 from astropy.table import QTable
 from astropy.visualization import quantity_support
+from gaiaxpy import calibrate
+from matplotlib.colors import Normalize
+from matplotlib.cm import get_cmap
+import lightkurve as lk
+import os
 import warnings 
 
 # for information about available queries + columns, see 
@@ -167,6 +172,7 @@ def plot_gaia(
     faintest_magnitude_to_label=16,
     size_of_zero_magnitude=100,
     unit=u.arcmin,
+    show_spectra=False,
     **kwargs
 ):
     """
@@ -246,8 +252,226 @@ def plot_gaia(
             [0, 0], radius, fill=False, color="gray", linewidth=2, alpha=0.2
         )
         plt.gca().add_patch(circle)
-
+    
         # set the axis limits
         plt.xlim(radius, -radius)
         plt.ylim(-radius, radius)
         plt.axis("scaled")
+
+        
+def plot_star_spectra(center, 
+                 starmap, 
+                 ra_scale_fac=1, 
+                 dec_scale_fac=1, 
+                 ra_offset=-0.5, 
+                 dec_offset=-0.5,
+                 colormap="viridis"):
+    
+    """
+    Plots the Gaia DR3 spectra of stars 
+    within the given star map.
+    
+    Parameters
+    ----------
+    center : SkyCoord
+        An astropy SkyCoord object indicating the
+        right ascension and declination of the center.
+    starmap : QTable
+        An astropy table containing the results,
+        with columns for different coordinates
+        or filters, and rows for different stars.
+    ra_scale_fac : float
+        Scaling factor of overplotted spectra in the
+        x-direction
+    dec_scale_fac : float
+        Scaling factor of overplotted spectra in the
+        y-direction
+    ra_offset : float
+        Offset of spectra from their corresponding
+        star in the x-direction
+    dec_offset : float
+        Offset of spectra from their corresponding
+        star in the y-direction
+    """
+
+    # Loads spectroscopic data
+    calibrated_spectra, sampling = calibrate(list(starmap['source_id']))
+    
+    # Unpacks starmap center ra and dec
+    ra_center = center.ra
+    dec_center = center.dec
+    
+    # Sets up color mapping for spectra
+    cmap = get_cmap(colormap)
+    norm = Normalize(vmin=0, vmax=1)
+
+    # Iterates over every spectra found in Gaia
+    for star_id, flux in zip(calibrated_spectra['source_id'], calibrated_spectra['flux']):
+
+        # Corresponding (ra, dec) for every spectra
+        idx = list(starmap['source_id']).index(star_id)
+        ra = starmap['ra'][idx]
+        dec = starmap['dec'][idx]
+
+        # Calculates the offset used for each spectra
+        star_ra = ((ra - ra_center).to(u.arcminute) * np.cos(dec)).value
+        star_dec = (dec - dec_center).to(u.arcminute).value
+
+        # Normalizes spectra data to range from [0, 1]
+        normalized_sampling = (sampling - min(sampling)) / (max(sampling) - min(sampling))
+        normalized_flux = (flux - min(flux)) / (max(flux) - min(flux))
+
+        # Determines the color of the spectra
+        c = normalized_sampling[np.argmax(normalized_flux)]
+        color = cmap(norm(c))
+
+        # Adds offsets and applies scales to spectra
+        new_sampling = ra_scale_fac * ((sampling - min(sampling)) / (max(sampling) - min(sampling)) + ra_offset) + star_ra
+        new_flux = dec_scale_fac * ((flux - min(flux)) / (max(flux) - min(flux)) + dec_offset) + star_dec
+
+        # Plots spectra at the corresponding star
+        plt.plot(new_sampling, new_flux, color=color)
+        
+    
+def download_valid_data(save_address=os.getcwd(), 
+                        target_name=None, 
+                        ra=None, 
+                        dec=None, 
+                        missions=("TESS")):
+    
+    """
+    Attempts to download all data products 
+    for a given target star to a user-give 
+    directory. Data products can be searched
+    for using the star's name or its celestial 
+    coordinates.
+    
+    Parameters
+    -----------
+    save_address : string
+        The address at which downloaded 
+        lightcurve data will be stored. Defaults 
+        to present working directory
+    target_name : string
+        Name of a star
+    ra : float
+        Right ascension of a star
+    dec : float
+        Declination of a star
+    missions : tuple
+        List of which missions to download data
+        for. Valid options are "Kepler," "K2," 
+        or "TESS."
+    
+    Returns
+    -------
+    valid_data_tables : list
+    
+    """
+
+    # Sets download location to folder in given directory
+    save_address = save_address + "\lightcurve_data"
+    
+    # Throws an error if no target star info is given
+    if all(i is None for i in [target_name, ra, dec]):
+        raise ValueError("Must provide target name or position")
+    
+    # Handles downloads for a given star name
+    elif type(target_name)==str:
+        results = lk.search_targetpixelfile(target_name, mission=missions)
+        
+    # Handles downloads for a given star coordinate
+    else:
+        position = SkyCoord(ra=ra, dec=dec)
+        results = lk.search_targetpixelfile(position, mission=missions)
+        
+    # Creates a list to hold data products
+    valid_data_tables = [0 for i in range(len(results))]
+    
+    # Downloads every data product
+    idx=0
+    while idx < len(results):
+        
+        successful_download=False
+        while successful_download==False:
+            
+            # Attempts to download a data product from the results table
+            try:
+                data_product = results[idx].download(download_dir=save_address)
+                valid_data_tables[idx] = data_product
+                successful_download=True
+                idx += 1
+                
+            # Handles an error where data has been downloaded incorrectly
+            except:
+                print("WARNING: Failed to download data product...")
+                print("This is typically caused by files that have only partially downloaded\n")
+                response = input("Attempt to delete existing data and redownload (y/n): ")
+                response = (response.upper() == "Y")
+                
+                # Deletes existing data
+                if response:
+
+                    idx=0
+                    ids = np.unique(results.target_name)
+                    
+                    # Iterates over all data directories
+                    for subdir in os.listdir(rf"{save_address}\mastDownload"):
+                        
+                        data_dir = rf"{save_address}\mastDownload\{subdir}"
+                        
+                        # Deletes each target star file in these directories
+                        for file in os.listdir(data_dir):
+                            for subfile in os.listdir(rf"{data_dir}\{file}"):
+                                for target in ids:
+                                    if target in file:
+                                        os.remove(rf"{data_dir}\{file}\{subfile}")
+                                        os.rmdir(rf"{data_dir}\{file}")
+
+    # Drops leftover zeros in the data products list
+    valid_data_tables = list(filter(lambda num: num != 0, valid_data_tables))
+    
+    return valid_data_tables
+
+def generate_valid_lightcurves(starmap, 
+                               save_address=os.getcwd(), 
+                               missions=("TESS")):
+    
+    """
+    Attempts to generate lightcurves for
+    each star in a given starfield.
+    
+    Parameters
+    -----------
+    starmap : QTable
+        An astropy table containing the results,
+        with columns for different coordinates
+        or filters, and rows for different stars.
+    save_address : string
+        The address at which downloaded 
+        lightcurve data will be stored. Defaults 
+        to present working directory
+    missions : tuple
+        List of which missions to download data
+        for. Valid options are "Kepler," "K2," 
+        or "TESS."
+    """
+    
+    # Iterates over every star in the starmap
+    for i in range(len(starmap)):
+        
+        # Extracts star location
+        ra = starmap['ra'][i]
+        dec = starmap['dec'][i]
+        
+        print(f"Looking for data products at ({ra}, {dec})...")
+        
+        # Downloads all valid data products for the given star
+        valid_data = download_valid_data(save_address, ra=ra, dec=dec, missions=missions)
+        
+        print(f"Found {len(valid_data)} valid data products...\n")
+        
+        # Produces lightcurves for each data product
+        for data_product in valid_data:
+            data_product.to_lightcurve(method='pld').remove_outliers().flatten().scatter()
+            plt.show()
