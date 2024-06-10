@@ -3,7 +3,12 @@ site_url: https://zkbt.github.com/thefriendlystars
 nav:
     - Welcome: index.md
     - installation.ipynb
-    - gaia.ipynb
+    - User Guide:
+      - gaia.ipynb
+    - Developer Guide:
+      - github.ipynb
+      - testing.ipynb
+      - documentation.ipynb
 theme:
   name: "material"
   features:
@@ -32,7 +37,6 @@ plugins:
             show_if_no_docstring: False
             heading_level: 3
             show_bases: False
-      custom_templates: templates
   - exclude:
       glob:
         - "*.pdf"
