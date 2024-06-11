@@ -1,12 +1,14 @@
 from .imports import *
+from astropy.visualization import quantity_support
 from astropy.coordinates import SkyCoord
 from astroquery.gaia import Gaia
 from astropy.table import QTable
-from astropy.visualization import quantity_support
 from gaiaxpy import calibrate
 from matplotlib.colors import Normalize
 from matplotlib.cm import get_cmap
+from tqdm import tqdm
 import lightkurve as lk
+import pandas as pd
 import os
 import warnings 
 
@@ -258,7 +260,394 @@ def plot_gaia(
         plt.ylim(-radius, radius)
         plt.axis("scaled")
 
+##############################################################
+######################     NEW CODE     ######################
+##############################################################
+
+def search_result_to_df(search_result):
+    
+    """
+    Converts lightkurve SearchResult object
+    into a pandas dataframe
+    
+    Parameters
+    ----------
+    search_result : SearchResult
+        A lightkurve SearchResult containing 
+        information about data products for
+        a given star
         
+    Returns
+    -------
+    df : pd.DataFrame
+        Pandas dataframe containing the same
+        information as the input search result
+    """
+
+    # Initializes a dataframe to store search result data
+    df = pd.DataFrame(columns=['mission', 'year', 'author', 'exptime', 'target_name', 'distance'])
+
+    # Iterates over every row in the SearchResult
+    for idx, row in enumerate(str(search_result).split('\n')[5:]):
+
+        # Splits a row using spaces as a delimeter
+        row = row.split()
+
+        # Converts the split up data into the proper format
+        mission = row[1] + " " + row[2] + " " + row[3]
+        year = int(row[4])
+        author = row[5]
+        exptime = int(row[6])
+        target_name = int(row[7])
+        distance = float(row[8])
+
+        # Adds row data to the dataframe
+        df.loc[idx] = [mission, year, author, exptime, target_name, distance]
+        
+    return df
+
+def delete_conflicting_data(save_address, search_results):
+    
+    """
+    Deletes all local user data for a
+    given star.
+    
+    Parameters
+    ----------
+    save_address : string
+        Local save directory for lightkurve data
+    search_results : SearchResult
+        Lightkurve search result table with
+        data product information
+    """
+    
+    ids = np.unique(search_results.target_name)
+
+    # Iterates over all data directories
+    for subdir in os.listdir(rf"{save_address}\mastDownload"):
+
+        data_dir = rf"{save_address}\mastDownload\{subdir}"
+
+        # Deletes each target star file in these directories
+        for file in os.listdir(data_dir):
+            
+            print(file)
+            
+            for subfile in os.listdir(rf"{data_dir}\{file}"):
+                for target in ids:
+                    if target in file:
+                        os.remove(rf"{data_dir}\{file}\{subfile}")
+                        os.rmdir(rf"{data_dir}\{file}")
+
+def download_valid_data(save_address=os.getcwd(), 
+                        target_name=None, 
+                        ra=None, 
+                        dec=None, 
+                        missions=("TESS"),
+                        exptime_to_download="longest"):
+    
+    """
+    Attempts to download all data products 
+    for a given target star to a user-give 
+    directory. Data products can be searched
+    for using the star's name or its celestial 
+    coordinates.
+    
+    Parameters
+    -----------
+    save_address : string
+        The address at which downloaded 
+        lightcurve data will be stored. Defaults 
+        to present working directory
+    target_name : string
+        Name of a star
+    ra : float
+        Right ascension of a star
+    dec : float
+        Declination of a star
+    missions : tuple
+        List of which missions to download data
+        for. Valid options are "Kepler," "K2," 
+        or "TESS."
+    
+    Returns
+    -------
+    valid_data_tables : list
+    
+    """
+    
+    # Sets download location to folder in given directory
+    save_address = save_address + "\lightcurve_data"
+    
+    # Throws an error if no target star info is given
+    if all(i is None for i in [target_name, ra, dec]):
+        raise ValueError("Must provide target name or position")
+    
+    # Handles downloads for a given star name
+    elif type(target_name)==str:
+        search_results = lk.search_lightcurve(target_name, mission=missions)
+        
+    # Handles downloads for a given star coordinate
+    else:
+        position = SkyCoord(ra=ra, dec=dec)
+        search_results = lk.search_lightcurve(position, mission=missions)
+        
+    if len(search_results) == 0:
+        return
+       
+    # Extracts the exposures of each data product
+    results_df = search_result_to_df(search_results)
+    exp_list = list(results_df['exptime'])
+    
+    # Finds the index of a valid data product
+    exp_dict = {"shortest":min(exp_list), "longest":max(exp_list)}
+    exp_use = exp_dict[exptime_to_download]
+    idx = exp_list.index(exp_use)
+        
+    # Runs until download works
+    successful_download=False
+    while successful_download==False:
+
+        # Attempts to download a data product from the results table
+        try:
+            data_product = search_results[idx].download(download_dir=save_address)
+            successful_download=True
+
+        # Handles an error where data has been downloaded incorrectly
+        except:
+            print("WARNING: Failed to download data product...")
+            print("This is typically caused by files that have only partially downloaded\n")
+            do_delete = input("Attempt to delete existing data and redownload (y/n): ")
+            do_delete = (do_delete.upper() == "Y")
+
+            if do_delete:
+                delete_conflicting_data(save_address, search_results)
+    
+    return data_product
+
+def rescale(vals, old_min, old_max, new_min=0, new_max=1):
+
+    """
+    Rescales an array of values from
+    one scale to another.
+    
+    Parameters
+    ----------
+    vals : ndarray
+        Array of values to be rescaled
+    old_min : float
+        Original minimum of the passed
+        vals array. Does not need to be
+        the minimum array value.
+    old_max : float
+        Original maximum of the passed
+        vals array. Does not need to be
+        the maximum array value.
+    new_min : float
+        New minimum value of the rescaled
+        vals array.
+    new_max : float
+        New maximum value of the rescaled
+        vals array.
+        
+    Returns
+    -------
+    rescaled_vals : ndarray
+        Rescaled array of values
+    """
+    
+    return new_min + (new_max - new_min) * (vals - old_min)/(old_max - old_min)
+
+def resolve_box_overlap(xs_orig, 
+                        ys_orig, 
+                        width, 
+                        height, 
+                        x_bound,
+                        y_bound,
+                        x_offset_fac=0.2, 
+                        y_offset_fac=1.1):
+    
+    """
+    Adjusts box locations so that they 
+    no longer overlap.
+    
+    Parameters
+    ----------
+    xs_orig : ndarray
+        X-coordinate positions of each
+        box.
+    ys_orig : ndarray
+        Y-coordinate positions of each
+        box.
+    width : float
+        Width of every box (must be
+        uniform for every box)
+    height : float
+        Height of every box (must be
+        uniform for every box)
+    x_offset_fac : float
+        Scaling factor used for displacing
+        boxes in the x-direction.
+    y_offset_fac : float
+        Scaling factor used for displacing
+        boxes in the y-direction.
+        
+    Returns
+    -------
+    xs : ndarray
+        Modified x-coordinate positions
+        of each box.
+    ys : ndarray
+        Modified y-coordinate positions
+        of each box.
+    """
+    
+    resolved = False     # Tracks whether or not any boxes are overlapping
+    iterations = 0       # Number of iterations of attempted overlap resolution
+    max_iterations = 25  # Add a maximum iteration limit to prevent infinite loops
+    
+    xs = xs_orig.copy()  # New x-array to prevent overwriting original x-data
+    ys = ys_orig.copy()  # New y-array to prevent overwriting original y-data
+
+    # Iterates until max iteration limit is hit
+    for iteration in range(max_iterations):
+        
+        resolved = True
+
+        # Iterates over every box
+        for i in range(len(xs)):
+            for j in range(i + 1, len(xs)):
+                
+                # Calculates x- and y-separations
+                x_sep = xs[i] - xs[j]
+                y_sep = ys[i] - ys[j]
+
+                # Checks if two boxes are overlapping
+                if abs(x_sep) < width and abs(y_sep) < height:
+                    
+                    # Calculates how much to offset these boxes
+                    x_offset = x_offset_fac * (0.5 * (width - x_sep))
+                    y_offset = y_offset_fac * (0.5 * (height - y_sep))
+
+                    # Resolves y-direction overlaps
+                    if y_sep > 0:
+                        new_yi = min(ys[i] + y_offset, y_bound[1] - height)
+                        new_yj = max(ys[j] - y_offset, y_bound[0])
+                    else:
+                        new_yi = max(ys[i] - y_offset, y_bound[0])
+                        new_yj = min(ys[j] + y_offset, y_bound[1] - height)
+                    ys[i], ys[j] = new_yi, new_yj
+
+                    # Resolves x-direction overlaps
+                    if x_sep > 0:
+                        new_xi = min(xs[i] + x_offset, x_bound[1] - width)
+                        new_xj = max(xs[j] - x_offset, x_bound[0])
+                    else:
+                        new_xi = max(xs[i] - x_offset, x_bound[0])
+                        new_xj = min(xs[j] + x_offset, x_bound[1] - width)
+                    xs[i], xs[j] = new_xi, new_xj
+
+                    resolved = False
+        
+        # Ends the loop if no boxes overlap
+        if resolved:
+            break
+
+    return xs, ys
+
+def generate_valid_lightcurves(center,
+                               starmap_radius,
+                               starmap, 
+                               save_address=os.getcwd(), 
+                               missions=("TESS"),
+                               x_factor=5,
+                               y_factor=2,
+			       exp_time_to_download="longest"):
+    
+    """
+    Attempts to generate lightcurves for
+    each star in a given starfield.
+    
+    Parameters
+    -----------
+    starmap : QTable
+        An astropy table containing the results,
+        with columns for different coordinates
+        or filters, and rows for different stars.
+    save_address : string
+        The address at which downloaded 
+        lightcurve data will be stored. Defaults 
+        to present working directory
+    missions : tuple
+        List of which missions to download data
+        for. Valid options are "Kepler," "K2," 
+        or "TESS."
+    """
+    
+    # Controls the size of the lightcurves
+    x_factor = 5
+    y_factor = 2
+    
+    # Unpacks starmap center coordinates
+    ra_center = center.ra
+    dec_center = center.dec
+    
+    # Generates alpha values to use for lightcurves based on magnitude
+    mags = np.array(starmap['G_gaia_mag'].value)
+    cmap = get_cmap('Greys')
+    c = cmap(rescale(mags, old_min=max(mags), old_max=min(mags), new_min=0.3, new_max=1))
+    
+    # Initializes arrays for star locations
+    star_ra = np.array([0. for i in range(len(starmap))])
+    star_dec = np.array([0. for i in range(len(starmap))])
+    
+    # Calculates the offset of each lightcurve
+    for idx, loc in enumerate(zip(starmap['ra'], starmap['dec'])):
+        
+        ra, dec = loc
+        star_ra[idx] = ((ra - ra_center).to(u.arcminute) * np.cos(dec)).value
+        star_dec[idx] = (dec - dec_center).to(u.arcminute).value
+    
+    # Resolves overlapping bounding boxes
+    star_ra_updated, star_dec_updated = resolve_box_overlap(star_ra, star_dec, x_factor/2, y_factor/2,
+                                                           x_bound=[-starmap_radius.value, starmap_radius.value],
+                                                           y_bound=[-starmap_radius.value, starmap_radius.value])
+    print("    Finished resolving overlapping spectra...")
+    print("    Formatting lightcurve data...")
+    
+    # Iterates over every star in the starmap
+    for i in tqdm(range(len(starmap))):
+        
+        # Downloads lightcurve for a given star
+        valid_data = download_valid_data(save_address, 
+                                         ra=starmap['ra'][i], 
+                                         dec=starmap['dec'][i], 
+                                         missions=missions,
+                                         exptime_to_download='longest')
+        
+        # Runs when any data product is found
+        if valid_data is not None:
+
+            # Converts data products into lightcurve data arrays
+            lk_data = valid_data.remove_outliers().normalize()
+            times = lk_data['time'].value
+            fluxes = lk_data['flux'].value
+            
+            # Rescales lightcurves
+            norm_time = rescale(times, old_max=max(times), old_min=min(times))
+            norm_flux = rescale(fluxes, old_max=1.01, old_min=0.99)
+            
+            # Moves and stretches lightcurves
+            adjust_time = np.flip(x_factor*(norm_time-0.5) + star_ra_updated[i])
+            adjust_flux = np.flip(y_factor*(norm_flux-0.5) + star_dec_updated[i])
+
+            # Plots lightcurve
+            plt.scatter(adjust_time, adjust_flux, s=0.01, color=c[i])
+            
+            # Plots a line connecting moved lightcurves to their host star
+            #if np.abs(dy) != 0:
+            plt.plot([star_ra[i], star_ra_updated[i]], [star_dec[i], star_dec_updated[i]], color='blue', ls='--')
+
 def plot_star_spectra(center, 
                  starmap, 
                  ra_scale_fac=1, 
@@ -331,147 +720,3 @@ def plot_star_spectra(center,
 
         # Plots spectra at the corresponding star
         plt.plot(new_sampling, new_flux, color=color)
-        
-    
-def download_valid_data(save_address=os.getcwd(), 
-                        target_name=None, 
-                        ra=None, 
-                        dec=None, 
-                        missions=("TESS")):
-    
-    """
-    Attempts to download all data products 
-    for a given target star to a user-give 
-    directory. Data products can be searched
-    for using the star's name or its celestial 
-    coordinates.
-    
-    Parameters
-    -----------
-    save_address : string
-        The address at which downloaded 
-        lightcurve data will be stored. Defaults 
-        to present working directory
-    target_name : string
-        Name of a star
-    ra : float
-        Right ascension of a star
-    dec : float
-        Declination of a star
-    missions : tuple
-        List of which missions to download data
-        for. Valid options are "Kepler," "K2," 
-        or "TESS."
-    
-    Returns
-    -------
-    valid_data_tables : list
-    
-    """
-
-    # Sets download location to folder in given directory
-    save_address = save_address + "\lightcurve_data"
-    
-    # Throws an error if no target star info is given
-    if all(i is None for i in [target_name, ra, dec]):
-        raise ValueError("Must provide target name or position")
-    
-    # Handles downloads for a given star name
-    elif type(target_name)==str:
-        results = lk.search_targetpixelfile(target_name, mission=missions)
-        
-    # Handles downloads for a given star coordinate
-    else:
-        position = SkyCoord(ra=ra, dec=dec)
-        results = lk.search_targetpixelfile(position, mission=missions)
-        
-    # Creates a list to hold data products
-    valid_data_tables = [0 for i in range(len(results))]
-    
-    # Downloads every data product
-    idx=0
-    while idx < len(results):
-        
-        successful_download=False
-        while successful_download==False:
-            
-            # Attempts to download a data product from the results table
-            try:
-                data_product = results[idx].download(download_dir=save_address)
-                valid_data_tables[idx] = data_product
-                successful_download=True
-                idx += 1
-                
-            # Handles an error where data has been downloaded incorrectly
-            except:
-                print("WARNING: Failed to download data product...")
-                print("This is typically caused by files that have only partially downloaded\n")
-                response = input("Attempt to delete existing data and redownload (y/n): ")
-                response = (response.upper() == "Y")
-                
-                # Deletes existing data
-                if response:
-
-                    idx=0
-                    ids = np.unique(results.target_name)
-                    
-                    # Iterates over all data directories
-                    for subdir in os.listdir(rf"{save_address}\mastDownload"):
-                        
-                        data_dir = rf"{save_address}\mastDownload\{subdir}"
-                        
-                        # Deletes each target star file in these directories
-                        for file in os.listdir(data_dir):
-                            for subfile in os.listdir(rf"{data_dir}\{file}"):
-                                for target in ids:
-                                    if target in file:
-                                        os.remove(rf"{data_dir}\{file}\{subfile}")
-                                        os.rmdir(rf"{data_dir}\{file}")
-
-    # Drops leftover zeros in the data products list
-    valid_data_tables = list(filter(lambda num: num != 0, valid_data_tables))
-    
-    return valid_data_tables
-
-def generate_valid_lightcurves(starmap, 
-                               save_address=os.getcwd(), 
-                               missions=("TESS")):
-    
-    """
-    Attempts to generate lightcurves for
-    each star in a given starfield.
-    
-    Parameters
-    -----------
-    starmap : QTable
-        An astropy table containing the results,
-        with columns for different coordinates
-        or filters, and rows for different stars.
-    save_address : string
-        The address at which downloaded 
-        lightcurve data will be stored. Defaults 
-        to present working directory
-    missions : tuple
-        List of which missions to download data
-        for. Valid options are "Kepler," "K2," 
-        or "TESS."
-    """
-    
-    # Iterates over every star in the starmap
-    for i in range(len(starmap)):
-        
-        # Extracts star location
-        ra = starmap['ra'][i]
-        dec = starmap['dec'][i]
-        
-        print(f"Looking for data products at ({ra}, {dec})...")
-        
-        # Downloads all valid data products for the given star
-        valid_data = download_valid_data(save_address, ra=ra, dec=dec, missions=missions)
-        
-        print(f"Found {len(valid_data)} valid data products...\n")
-        
-        # Produces lightcurves for each data product
-        for data_product in valid_data:
-            data_product.to_lightcurve(method='pld').remove_outliers().flatten().scatter()
-            plt.show()
