@@ -307,11 +307,11 @@ def search_result_to_df(search_result):
     return df
 
 def delete_conflicting_data(save_address, search_results):
-    
+
     """
     Deletes all local user data for a
     given star.
-    
+
     Parameters
     ----------
     save_address : string
@@ -320,90 +320,94 @@ def delete_conflicting_data(save_address, search_results):
         Lightkurve search result table with
         data product information
     """
-    
+
     ids = np.unique(search_results.target_name)
 
     # Iterates over all data directories
-    for subdir in os.listdir(rf"{save_address}\mastDownload"):
+    for subdir in os.listdir(os.path.join(save_address, "mastDownload")):
 
-        data_dir = rf"{save_address}\mastDownload\{subdir}"
+        data_dir = os.path.join(save_address, "mastDownload", subdir)
 
         # Deletes each target star file in these directories
         for file in os.listdir(data_dir):
-            
-            print(file)
-            
-            for subfile in os.listdir(rf"{data_dir}\{file}"):
+
+            for subfile in os.listdir(os.path.join(data_dir, file)):
                 for target in ids:
                     if target in file:
-                        os.remove(rf"{data_dir}\{file}\{subfile}")
-                        os.rmdir(rf"{data_dir}\{file}")
+                                      
+                        os.remove(os.path.join(data_dir, file, subfile))
+                        os.rmdir(os.path.join(data_dir, file))
 
-def download_valid_data(save_address=os.getcwd(), 
-                        target_name=None, 
-                        ra=None, 
-                        dec=None, 
+def download_valid_data(save_address=os.getcwd(),
+                        target_name=None,
+                        ra=None,
+                        dec=None,
                         missions=("TESS"),
                         exptime_to_download="longest"):
-    
+
     """
-    Attempts to download all data products 
-    for a given target star to a user-give 
+    Attempts to download a data product
+    for a given target star to a user-give
     directory. Data products can be searched
-    for using the star's name or its celestial 
-    coordinates.
-    
+    for using the star's name or its celestial
+    coordinates. The data product downloaded
+    will be chosen by the exposure time argument.
+
     Parameters
     -----------
     save_address : string
-        The address at which downloaded 
-        lightcurve data will be stored. Defaults 
-        to present working directory
+        The address at which downloaded
+        lightcurve data will be stored. Defaults
+        to present working directory.
     target_name : string
-        Name of a star
+        Name of a star.
     ra : float
-        Right ascension of a star
+        Right ascension of a star.
     dec : float
-        Declination of a star
+        Declination of a star.
     missions : tuple
         List of which missions to download data
         for. Valid options are "Kepler," "K2," 
         or "TESS."
-    
+    exptime_to_download : string
+        Controls the type of exposure time searched
+        for in data products. Valid options are
+        "shortest" and "longest."
+
     Returns
     -------
-    valid_data_tables : list
-    
+    valid_data_tables : TessLightCurve
+        Lightkurve data object
     """
-    
+
     # Sets download location to folder in given directory
     save_address = save_address + "\lightcurve_data"
-    
+
     # Throws an error if no target star info is given
     if all(i is None for i in [target_name, ra, dec]):
         raise ValueError("Must provide target name or position")
-    
+
     # Handles downloads for a given star name
     elif type(target_name)==str:
         search_results = lk.search_lightcurve(target_name, mission=missions)
-        
+
     # Handles downloads for a given star coordinate
     else:
         position = SkyCoord(ra=ra, dec=dec)
         search_results = lk.search_lightcurve(position, mission=missions)
-        
+
     if len(search_results) == 0:
         return
-       
+
     # Extracts the exposures of each data product
     results_df = search_result_to_df(search_results)
     exp_list = list(results_df['exptime'])
-    
+
     # Finds the index of a valid data product
     exp_dict = {"shortest":min(exp_list), "longest":max(exp_list)}
     exp_use = exp_dict[exptime_to_download]
     idx = exp_list.index(exp_use)
-        
+
     # Runs until download works
     successful_download=False
     while successful_download==False:
@@ -415,14 +419,15 @@ def download_valid_data(save_address=os.getcwd(),
 
         # Handles an error where data has been downloaded incorrectly
         except:
+
             print("WARNING: Failed to download data product...")
-            print("This is typically caused by files that have only partially downloaded\n")
+            print("This is typically caused by files that have only partially downloaded")
             do_delete = input("Attempt to delete existing data and redownload (y/n): ")
             do_delete = (do_delete.upper() == "Y")
 
             if do_delete:
                 delete_conflicting_data(save_address, search_results)
-    
+                         
     return data_product
 
 def rescale(vals, old_min, old_max, new_min=0, new_max=1):
@@ -711,8 +716,8 @@ def plot_star_spectra(center,
         normalized_flux = (flux - min(flux)) / (max(flux) - min(flux))
 
         # Determines the color of the spectra
-        c = normalized_sampling[np.argmax(normalized_flux)]
-        color = cmap(norm(c))
+        c = float((starmap['BP_gaia_mag'][idx] - starmap['RP_gaia_mag'][idx]).value)
+        color = cmap(norm((c)/3))
 
         # Adds offsets and applies scales to spectra
         new_sampling = ra_scale_fac * ((sampling - min(sampling)) / (max(sampling) - min(sampling)) + ra_offset) + star_ra
